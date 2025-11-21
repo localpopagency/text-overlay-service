@@ -100,6 +100,25 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
 
     const fontPath = path.join(__dirname, 'fonts', fontFileName)
     console.log(`Attempting to register font: ${fontPath}`)
+    console.log(`__dirname is: ${__dirname}`)
+    console.log(`process.cwd() is: ${process.cwd()}`)
+
+    // Debug: List directory contents
+    const fs = require('fs')
+    try {
+      const dirContents = fs.readdirSync(__dirname)
+      console.log(`Contents of __dirname: ${JSON.stringify(dirContents)}`)
+
+      const fontsDir = path.join(__dirname, 'fonts')
+      if (fs.existsSync(fontsDir)) {
+        const fontsContents = fs.readdirSync(fontsDir)
+        console.log(`Contents of fonts dir: ${JSON.stringify(fontsContents)}`)
+      } else {
+        console.log(`Fonts directory does not exist at: ${fontsDir}`)
+      }
+    } catch (err) {
+      console.log(`Error listing directory: ${err.message}`)
+    }
 
     const registered = GlobalFonts.registerFromPath(fontPath, styleConfig.fontFamily)
     console.log(`Font registration result: ${registered}`)

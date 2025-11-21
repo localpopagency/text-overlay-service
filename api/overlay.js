@@ -99,7 +99,14 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     }
 
     const fontPath = path.join(process.cwd(), 'fonts', fontFileName)
-    GlobalFonts.registerFromPath(fontPath, styleConfig.fontFamily)
+    console.log(`Attempting to register font: ${fontPath}`)
+
+    const registered = GlobalFonts.registerFromPath(fontPath, styleConfig.fontFamily)
+    console.log(`Font registration result: ${registered}`)
+
+    if (!registered) {
+      throw new Error(`Failed to register font: ${fontPath}`)
+    }
 
     // 2. Create canvas with image dimensions
     const canvas = createCanvas(

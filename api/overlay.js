@@ -98,7 +98,7 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
       throw new Error(`Unknown font family: ${styleConfig.fontFamily}`)
     }
 
-    const fontPath = path.join(__dirname, 'fonts', fontFileName)
+    const fontPath = path.join(__dirname, '..', 'fonts', fontFileName)
     console.log(`Attempting to register font: ${fontPath}`)
     console.log(`__dirname is: ${__dirname}`)
     console.log(`process.cwd() is: ${process.cwd()}`)
@@ -109,7 +109,11 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
       const dirContents = fs.readdirSync(__dirname)
       console.log(`Contents of __dirname: ${JSON.stringify(dirContents)}`)
 
-      const fontsDir = path.join(__dirname, 'fonts')
+      const parentDir = path.join(__dirname, '..')
+      const parentContents = fs.readdirSync(parentDir)
+      console.log(`Contents of parent dir: ${JSON.stringify(parentContents)}`)
+
+      const fontsDir = path.join(__dirname, '..', 'fonts')
       if (fs.existsSync(fontsDir)) {
         const fontsContents = fs.readdirSync(fontsDir)
         console.log(`Contents of fonts dir: ${JSON.stringify(fontsContents)}`)

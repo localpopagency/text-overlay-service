@@ -3,7 +3,7 @@
     "api/overlay.js": {
       "memory": 1024,
       "maxDuration": 10,
-      "includeFiles": "api/fonts/*.ttf"
+      "includeFiles": "fonts/*.ttf"
     }
   }
 }

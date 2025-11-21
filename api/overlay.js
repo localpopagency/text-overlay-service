@@ -112,19 +112,29 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
       throw new Error(`Font file not accessible: ${fontPath}`)
     }
 
-    // Register font - even if it returns false, it might still be usable
-    GlobalFonts.registerFromPath(fontPath, styleConfig.fontFamily)
+    // Register font WITHOUT specifying family name - let it use the font's internal name
+    GlobalFonts.registerFromPath(fontPath)
 
-    // Check if font family is available
+    // Check what fonts are now available
     const families = GlobalFonts.families
-    console.log(`Registered font families: ${JSON.stringify(families)}`)
+    console.log(`All registered font families: ${JSON.stringify(families)}`)
 
-    const familyRegistered = families.some(f => f.family === styleConfig.fontFamily)
-    console.log(`Font family "${styleConfig.fontFamily}" is ${familyRegistered ? 'available' : 'NOT available'}`)
+    // Look for the font we just registered
+    const actualFontFamily = families.find(f =>
+      f.family.toLowerCase().includes(styleConfig.fontFamily.toLowerCase()) ||
+      f.family.includes('Inter') ||
+      f.family.includes('Poppins') ||
+      f.family.includes('Montserrat') ||
+      f.family.includes('Oswald')
+    )
 
-    if (!familyRegistered) {
-      throw new Error(`Font family "${styleConfig.fontFamily}" not registered. Available: ${families.map(f => f.family).join(', ')}`)
+    if (!actualFontFamily) {
+      throw new Error(`Could not find registered font. Available: ${families.map(f => f.family).join(', ')}`)
     }
+
+    const fontFamilyToUse = actualFontFamily.family
+    console.log(`Using font family: "${fontFamilyToUse}"`)
+    console.log(`Font has styles: ${JSON.stringify(actualFontFamily.styles)}`)
 
     // 2. Create canvas with image dimensions
     const canvas = createCanvas(
@@ -155,12 +165,13 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     const fontSize = calculateOptimalFontSize(
       ctx,
       text,
-      styleConfig.fontFamily,
+      fontFamilyToUse,
       maxTextWidth
     )
 
     // 6. Configure text rendering
-    ctx.font = `bold ${fontSize}px "${styleConfig.fontFamily}"`
+    ctx.font = `bold ${fontSize}px "${fontFamilyToUse}"`
+    console.log(`Setting canvas font to: ${ctx.font}`)
     ctx.fillStyle = styleConfig.textColor
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'

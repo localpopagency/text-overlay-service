@@ -112,22 +112,18 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
       throw new Error(`Font file not accessible: ${fontPath}`)
     }
 
-    // Try registering with full family name
-    const registered = GlobalFonts.registerFromPath(fontPath, styleConfig.fontFamily)
-    console.log(`Font registration result for "${styleConfig.fontFamily}": ${registered}`)
+    // Register font - even if it returns false, it might still be usable
+    GlobalFonts.registerFromPath(fontPath, styleConfig.fontFamily)
 
-    if (!registered) {
-      // Try alternative registration without family name
-      console.log(`Trying to register without explicit family name...`)
-      const altRegistered = GlobalFonts.registerFromPath(fontPath)
-      console.log(`Alternative registration result: ${altRegistered}`)
+    // Check if font family is available
+    const families = GlobalFonts.families
+    console.log(`Registered font families: ${JSON.stringify(families)}`)
 
-      if (!altRegistered) {
-        // List all registered fonts for debugging
-        const families = GlobalFonts.families
-        console.log(`Currently registered font families: ${JSON.stringify(families)}`)
-        throw new Error(`Failed to register font: ${fontPath}`)
-      }
+    const familyRegistered = families.some(f => f.family === styleConfig.fontFamily)
+    console.log(`Font family "${styleConfig.fontFamily}" is ${familyRegistered ? 'available' : 'NOT available'}`)
+
+    if (!familyRegistered) {
+      throw new Error(`Font family "${styleConfig.fontFamily}" not registered. Available: ${families.map(f => f.family).join(', ')}`)
     }
 
     // 2. Create canvas with image dimensions

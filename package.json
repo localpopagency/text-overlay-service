@@ -1,0 +1,16 @@
+{
+  "name": "text-overlay-service",
+  "version": "1.0.0",
+  "description": "Microservice for applying text overlays to images using @napi-rs/canvas",
+  "main": "api/overlay.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.82"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}

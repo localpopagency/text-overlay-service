@@ -112,29 +112,15 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
       throw new Error(`Font file not accessible: ${fontPath}`)
     }
 
-    // Register font WITHOUT specifying family name - let it use the font's internal name
-    GlobalFonts.registerFromPath(fontPath)
+    // Register font with explicit family name
+    GlobalFonts.registerFromPath(fontPath, styleConfig.fontFamily)
 
     // Check what fonts are now available
     const families = GlobalFonts.families
-    console.log(`All registered font families: ${JSON.stringify(families)}`)
+    console.log(`Registered font families: ${JSON.stringify(families)}`)
 
-    // Look for the font we just registered
-    const actualFontFamily = families.find(f =>
-      f.family.toLowerCase().includes(styleConfig.fontFamily.toLowerCase()) ||
-      f.family.includes('Inter') ||
-      f.family.includes('Poppins') ||
-      f.family.includes('Montserrat') ||
-      f.family.includes('Oswald')
-    )
-
-    if (!actualFontFamily) {
-      throw new Error(`Could not find registered font. Available: ${families.map(f => f.family).join(', ')}`)
-    }
-
-    const fontFamilyToUse = actualFontFamily.family
+    const fontFamilyToUse = styleConfig.fontFamily
     console.log(`Using font family: "${fontFamilyToUse}"`)
-    console.log(`Font has styles: ${JSON.stringify(actualFontFamily.styles)}`)
 
     // 2. Create canvas with image dimensions
     const canvas = createCanvas(
@@ -170,8 +156,11 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     )
 
     // 6. Configure text rendering
-    ctx.font = `bold ${fontSize}px "${fontFamilyToUse}"`
+    // Note: Don't specify 'bold' since we're already using a Bold font file
+    ctx.font = `${fontSize}px "${fontFamilyToUse}"`
     console.log(`Setting canvas font to: ${ctx.font}`)
+    console.log(`Text color: ${styleConfig.textColor}`)
+    console.log(`Text to render: "${text}"`)
     ctx.fillStyle = styleConfig.textColor
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'

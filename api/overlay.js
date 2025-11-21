@@ -100,35 +100,34 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
 
     const fontPath = path.join(__dirname, '..', 'fonts', fontFileName)
     console.log(`Attempting to register font: ${fontPath}`)
-    console.log(`__dirname is: ${__dirname}`)
-    console.log(`process.cwd() is: ${process.cwd()}`)
 
-    // Debug: List directory contents
+    // Debug: Verify file exists and is readable
     const fs = require('fs')
     try {
-      const dirContents = fs.readdirSync(__dirname)
-      console.log(`Contents of __dirname: ${JSON.stringify(dirContents)}`)
-
-      const parentDir = path.join(__dirname, '..')
-      const parentContents = fs.readdirSync(parentDir)
-      console.log(`Contents of parent dir: ${JSON.stringify(parentContents)}`)
-
-      const fontsDir = path.join(__dirname, '..', 'fonts')
-      if (fs.existsSync(fontsDir)) {
-        const fontsContents = fs.readdirSync(fontsDir)
-        console.log(`Contents of fonts dir: ${JSON.stringify(fontsContents)}`)
-      } else {
-        console.log(`Fonts directory does not exist at: ${fontsDir}`)
-      }
+      const stats = fs.statSync(fontPath)
+      console.log(`Font file size: ${stats.size} bytes`)
+      console.log(`Font file permissions: ${stats.mode.toString(8)}`)
     } catch (err) {
-      console.log(`Error listing directory: ${err.message}`)
+      console.error(`Error checking font file: ${err.message}`)
+      throw new Error(`Font file not accessible: ${fontPath}`)
     }
 
+    // Try registering with full family name
     const registered = GlobalFonts.registerFromPath(fontPath, styleConfig.fontFamily)
-    console.log(`Font registration result: ${registered}`)
+    console.log(`Font registration result for "${styleConfig.fontFamily}": ${registered}`)
 
     if (!registered) {
-      throw new Error(`Failed to register font: ${fontPath}`)
+      // Try alternative registration without family name
+      console.log(`Trying to register without explicit family name...`)
+      const altRegistered = GlobalFonts.registerFromPath(fontPath)
+      console.log(`Alternative registration result: ${altRegistered}`)
+
+      if (!altRegistered) {
+        // List all registered fonts for debugging
+        const families = GlobalFonts.families
+        console.log(`Currently registered font families: ${JSON.stringify(families)}`)
+        throw new Error(`Failed to register font: ${fontPath}`)
+      }
     }
 
     // 2. Create canvas with image dimensions

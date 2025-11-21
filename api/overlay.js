@@ -7,7 +7,7 @@
  * This runs as a plain Vercel serverless function (no Next.js webpack bundling).
  */
 
-const { createCanvas, loadImage, registerFont } = require('@napi-rs/canvas')
+const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas')
 const path = require('path')
 
 /**
@@ -99,7 +99,7 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     }
 
     const fontPath = path.join(process.cwd(), 'fonts', fontFileName)
-    registerFont(fontPath, { family: styleConfig.fontFamily })
+    GlobalFonts.registerFromPath(fontPath, styleConfig.fontFamily)
 
     // 2. Create canvas with image dimensions
     const canvas = createCanvas(

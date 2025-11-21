@@ -98,7 +98,7 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
       throw new Error(`Unknown font family: ${styleConfig.fontFamily}`)
     }
 
-    const fontPath = path.join(process.cwd(), 'fonts', fontFileName)
+    const fontPath = path.join(__dirname, 'fonts', fontFileName)
     console.log(`Attempting to register font: ${fontPath}`)
 
     const registered = GlobalFonts.registerFromPath(fontPath, styleConfig.fontFamily)

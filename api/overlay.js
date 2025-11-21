@@ -112,15 +112,37 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
       throw new Error(`Font file not accessible: ${fontPath}`)
     }
 
-    // Register font with explicit family name
+    // Try registering font with explicit family name first
     GlobalFonts.registerFromPath(fontPath, styleConfig.fontFamily)
 
     // Check what fonts are now available
-    const families = GlobalFonts.families
-    console.log(`Registered font families: ${JSON.stringify(families)}`)
+    let families = GlobalFonts.families
+    console.log(`After first registration: ${JSON.stringify(families)}`)
 
-    const fontFamilyToUse = styleConfig.fontFamily
+    // Check if our font registered with proper styles
+    let fontFamily = families.find(f => f.family === styleConfig.fontFamily)
+
+    if (!fontFamily || fontFamily.styles.length === 0) {
+      console.log(`⚠️ Font registered with empty styles, trying without explicit family name...`)
+
+      // Try registering without family name - let font use its internal name
+      GlobalFonts.registerFromPath(fontPath)
+      families = GlobalFonts.families
+      console.log(`After second registration: ${JSON.stringify(families)}`)
+
+      // Try to find any font that was just registered
+      fontFamily = families.find(f =>
+        f.family.toLowerCase().includes(styleConfig.fontFamily.toLowerCase()) ||
+        f.styles.length > 0
+      )
+    }
+
+    const fontFamilyToUse = fontFamily ? fontFamily.family : styleConfig.fontFamily
+    const hasStyles = fontFamily && fontFamily.styles.length > 0
+
     console.log(`Using font family: "${fontFamilyToUse}"`)
+    console.log(`Font has styles: ${hasStyles}`)
+    console.log(`Font styles: ${fontFamily ? JSON.stringify(fontFamily.styles) : 'none'}`)
 
     // 2. Create canvas with image dimensions
     const canvas = createCanvas(
@@ -156,11 +178,29 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     )
 
     // 6. Configure text rendering
-    // Note: Don't specify 'bold' since we're already using a Bold font file
-    ctx.font = `${fontSize}px "${fontFamilyToUse}"`
+    // Use weight 700 instead of 'bold' for better compatibility
+    const fontWeight = hasStyles ? '700' : 'bold'
+    ctx.font = `${fontWeight} ${fontSize}px "${fontFamilyToUse}"`
     console.log(`Setting canvas font to: ${ctx.font}`)
     console.log(`Text color: ${styleConfig.textColor}`)
     console.log(`Text to render: "${text}"`)
+
+    // Test if font is actually working by measuring text
+    const testMetrics = ctx.measureText(text)
+    console.log(`Text width measurement: ${testMetrics.width}px`)
+
+    if (testMetrics.width === 0) {
+      console.warn(`⚠️ Font measurement returned 0, font may not be working. Trying fallback...`)
+      // Try without weight specification
+      ctx.font = `${fontSize}px "${fontFamilyToUse}"`
+      const fallbackMetrics = ctx.measureText(text)
+      console.log(`Fallback text width: ${fallbackMetrics.width}px`)
+
+      if (fallbackMetrics.width === 0) {
+        console.error(`❌ Font completely failed. Using Arial fallback.`)
+        ctx.font = `bold ${fontSize}px Arial`
+      }
+    }
     ctx.fillStyle = styleConfig.textColor
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'

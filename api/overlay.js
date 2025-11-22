@@ -65,24 +65,68 @@ function calculateRegionBrightness(ctx, x, y, width, height) {
 }
 
 /**
- * Calculate optimal font size for text to fit within available width
+ * Wrap text into multiple lines to fit within maxWidth
+ * Returns array of lines
  */
-function calculateOptimalFontSize(ctx, text, fontFamily, maxWidth) {
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(' ')
+  const lines = []
+  let currentLine = ''
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word
+    const metrics = ctx.measureText(testLine)
+
+    if (metrics.width > maxWidth && currentLine) {
+      lines.push(currentLine)
+      currentLine = word
+    } else {
+      currentLine = testLine
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine)
+  }
+
+  return lines
+}
+
+/**
+ * Calculate optimal font size and wrap text to fit within available area
+ * Returns { fontSize, lines }
+ */
+function calculateTextLayout(ctx, text, fontFamily, maxWidth, maxHeight) {
   let fontSize = OVERLAY_CONFIG.FONT_SIZE_MAX
+  const lineHeightMultiplier = 1.2
 
   while (fontSize >= OVERLAY_CONFIG.FONT_SIZE_MIN) {
     ctx.font = `bold ${fontSize}px "${fontFamily}"`
-    const metrics = ctx.measureText(text)
 
-    if (metrics.width <= maxWidth) {
-      return fontSize
+    // First check if it fits on one line
+    const singleLineMetrics = ctx.measureText(text)
+    if (singleLineMetrics.width <= maxWidth) {
+      return { fontSize, lines: [text] }
+    }
+
+    // Try wrapping to 2 lines
+    const lines = wrapText(ctx, text, maxWidth)
+    const lineHeight = fontSize * lineHeightMultiplier
+    const totalHeight = lines.length * lineHeight
+
+    // Check if wrapped text fits in available height (max 2 lines)
+    if (lines.length <= 2 && totalHeight <= maxHeight) {
+      return { fontSize, lines }
     }
 
     fontSize -= OVERLAY_CONFIG.FONT_SIZE_STEP
   }
 
-  console.warn(`Text "${text}" may be too long for banner at ${OVERLAY_CONFIG.FONT_SIZE_MIN}px`)
-  return OVERLAY_CONFIG.FONT_SIZE_MIN
+  // Fallback: use minimum font size with wrapping
+  ctx.font = `bold ${OVERLAY_CONFIG.FONT_SIZE_MIN}px "${fontFamily}"`
+  const lines = wrapText(ctx, text, maxWidth)
+  console.warn(`Text "${text}" wrapped to ${lines.length} lines at ${OVERLAY_CONFIG.FONT_SIZE_MIN}px`)
+  return { fontSize: OVERLAY_CONFIG.FONT_SIZE_MIN, lines: lines.slice(0, 2) } // Max 2 lines
 }
 
 /**
@@ -171,32 +215,32 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
 
     console.log(`Background is ${isLightBackground ? 'light' : 'dark'}, using ${textColor} text`)
 
-    // 5. Calculate optimal font size
+    // 5. Calculate text layout (font size and line wrapping)
     const maxTextWidth = OVERLAY_CONFIG.TEXT_AREA_WIDTH - (OVERLAY_CONFIG.TEXT_PADDING_HORIZONTAL * 2)
-    const fontSize = calculateOptimalFontSize(
+    const maxTextHeight = OVERLAY_CONFIG.TEXT_AREA_HEIGHT - (OVERLAY_CONFIG.TEXT_PADDING_VERTICAL * 2)
+    const { fontSize, lines } = calculateTextLayout(
       ctx,
       text,
       fontFamilyToUse,
-      maxTextWidth
+      maxTextWidth,
+      maxTextHeight
     )
 
     // 6. Configure text rendering
-    // Use weight 700 instead of 'bold' for better compatibility
     const fontWeight = hasStyles ? '700' : 'bold'
     ctx.font = `${fontWeight} ${fontSize}px "${fontFamilyToUse}"`
     console.log(`Setting canvas font to: ${ctx.font}`)
     console.log(`Auto-detected text color: ${textColor}`)
-    console.log(`Text to render: "${text}"`)
+    console.log(`Text to render: "${text}" (${lines.length} line${lines.length > 1 ? 's' : ''})`)
 
     // Test if font is actually working by measuring text
-    const testMetrics = ctx.measureText(text)
+    const testMetrics = ctx.measureText(lines[0])
     console.log(`Text width measurement: ${testMetrics.width}px`)
 
     if (testMetrics.width === 0) {
       console.warn(`⚠️ Font measurement returned 0, font may not be working. Trying fallback...`)
-      // Try without weight specification
       ctx.font = `${fontSize}px "${fontFamilyToUse}"`
-      const fallbackMetrics = ctx.measureText(text)
+      const fallbackMetrics = ctx.measureText(lines[0])
       console.log(`Fallback text width: ${fallbackMetrics.width}px`)
 
       if (fallbackMetrics.width === 0) {
@@ -210,18 +254,27 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
 
     // 7. Calculate center position for text
     const textX = OVERLAY_CONFIG.TEXT_AREA_X + (OVERLAY_CONFIG.TEXT_AREA_WIDTH / 2)
-    const textY = OVERLAY_CONFIG.TEXT_AREA_Y + (OVERLAY_CONFIG.TEXT_AREA_HEIGHT / 2)
+    const textAreaCenterY = OVERLAY_CONFIG.TEXT_AREA_Y + (OVERLAY_CONFIG.TEXT_AREA_HEIGHT / 2)
+    const lineHeight = fontSize * 1.2
 
-    // 8. Draw text stroke (outline) for readability
+    // Calculate starting Y to center all lines vertically
+    const totalTextHeight = lines.length * lineHeight
+    const startY = textAreaCenterY - (totalTextHeight / 2) + (lineHeight / 2)
+
+    // 8. Draw each line
     ctx.strokeStyle = strokeColor
     ctx.lineWidth = OVERLAY_CONFIG.STROKE_WIDTH
     ctx.lineJoin = 'round'
     ctx.miterLimit = 2
-    ctx.strokeText(text, textX, textY)
-
-    // 9. Draw filled text on top
     ctx.fillStyle = textColor
-    ctx.fillText(text, textX, textY)
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineY = startY + (i * lineHeight)
+      // Draw stroke first
+      ctx.strokeText(lines[i], textX, lineY)
+      // Draw fill on top
+      ctx.fillText(lines[i], textX, lineY)
+    }
 
     // 11. Export as PNG buffer
     return canvas.toBuffer('image/png')

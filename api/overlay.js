@@ -16,22 +16,31 @@ const path = require('path')
 const OVERLAY_CONFIG = {
   IMAGE_WIDTH: 1024,
   IMAGE_HEIGHT: 1024,
-  BANNER_X: 51,
-  BANNER_Y: 60,
-  BANNER_WIDTH: 922,
-  BANNER_HEIGHT: 280,
-  BANNER_RADIUS: 20,
+  // Text area for sampling background brightness
+  TEXT_AREA_X: 51,
+  TEXT_AREA_Y: 60,
+  TEXT_AREA_WIDTH: 922,
+  TEXT_AREA_HEIGHT: 280,
   TEXT_PADDING_HORIZONTAL: 30,
   TEXT_PADDING_VERTICAL: 20,
   FONT_SIZE_MAX: 80,
   FONT_SIZE_MIN: 60,
   FONT_SIZE_STEP: 2,
-  TEXT_SHADOW: {
-    color: 'rgba(0, 0, 0, 0.5)',
-    blur: 4,
-    offsetX: 2,
-    offsetY: 2
-  }
+  // Stronger shadow for text without backdrop
+  TEXT_SHADOW_LIGHT: {
+    color: 'rgba(0, 0, 0, 0.8)',
+    blur: 8,
+    offsetX: 3,
+    offsetY: 3
+  },
+  TEXT_SHADOW_DARK: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    blur: 8,
+    offsetX: 3,
+    offsetY: 3
+  },
+  // Stroke for extra readability
+  STROKE_WIDTH: 4
 }
 
 /**
@@ -45,26 +54,27 @@ const FONT_FAMILIES = {
 }
 
 /**
- * Convert hex color to RGB values
+ * Calculate average brightness of a region in the image
+ * Returns a value between 0 (dark) and 255 (light)
  */
-function hexToRgb(hex) {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-  if (!result) {
-    throw new Error(`Invalid hex color: ${hex}`)
-  }
-  return {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  }
-}
+function calculateRegionBrightness(ctx, x, y, width, height) {
+  const imageData = ctx.getImageData(x, y, width, height)
+  const data = imageData.data
+  let totalBrightness = 0
+  let pixelCount = 0
 
-/**
- * Convert hex color to RGBA string with opacity
- */
-function hexToRGBA(hex, opacity) {
-  const rgb = hexToRgb(hex)
-  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`
+  // Sample every 10th pixel for performance
+  for (let i = 0; i < data.length; i += 40) { // 4 channels * 10 = 40
+    const r = data[i]
+    const g = data[i + 1]
+    const b = data[i + 2]
+    // Use perceived brightness formula (human eye is more sensitive to green)
+    const brightness = (0.299 * r + 0.587 * g + 0.114 * b)
+    totalBrightness += brightness
+    pixelCount++
+  }
+
+  return totalBrightness / pixelCount
 }
 
 /**
@@ -156,35 +166,27 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     const img = await loadImage(backgroundImageBuffer)
     ctx.drawImage(img, 0, 0, OVERLAY_CONFIG.IMAGE_WIDTH, OVERLAY_CONFIG.IMAGE_HEIGHT)
 
-    // 4. Draw backdrop rectangle with rounded corners
-    const backdropRGBA = hexToRGBA(
-      styleConfig.backdropColor,
-      styleConfig.backdropOpacity
+    // 4. Calculate background brightness where text will be placed
+    const avgBrightness = calculateRegionBrightness(
+      ctx,
+      OVERLAY_CONFIG.TEXT_AREA_X,
+      OVERLAY_CONFIG.TEXT_AREA_Y,
+      OVERLAY_CONFIG.TEXT_AREA_WIDTH,
+      OVERLAY_CONFIG.TEXT_AREA_HEIGHT
     )
-    ctx.fillStyle = backdropRGBA
+    console.log(`Average background brightness: ${avgBrightness.toFixed(1)}`)
 
-    // Draw rounded rectangle
-    const x = OVERLAY_CONFIG.BANNER_X
-    const y = OVERLAY_CONFIG.BANNER_Y
-    const width = OVERLAY_CONFIG.BANNER_WIDTH
-    const height = OVERLAY_CONFIG.BANNER_HEIGHT
-    const radius = OVERLAY_CONFIG.BANNER_RADIUS
+    // Determine text color based on background brightness
+    // If background is light (>128), use dark text; otherwise use light text
+    const isLightBackground = avgBrightness > 128
+    const textColor = isLightBackground ? '#000000' : '#FFFFFF'
+    const strokeColor = isLightBackground ? '#FFFFFF' : '#000000'
+    const textShadow = isLightBackground ? OVERLAY_CONFIG.TEXT_SHADOW_DARK : OVERLAY_CONFIG.TEXT_SHADOW_LIGHT
 
-    ctx.beginPath()
-    ctx.moveTo(x + radius, y)
-    ctx.lineTo(x + width - radius, y)
-    ctx.quadraticCurveTo(x + width, y, x + width, y + radius)
-    ctx.lineTo(x + width, y + height - radius)
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
-    ctx.lineTo(x + radius, y + height)
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius)
-    ctx.lineTo(x, y + radius)
-    ctx.quadraticCurveTo(x, y, x + radius, y)
-    ctx.closePath()
-    ctx.fill()
+    console.log(`Background is ${isLightBackground ? 'light' : 'dark'}, using ${textColor} text`)
 
     // 5. Calculate optimal font size
-    const maxTextWidth = OVERLAY_CONFIG.BANNER_WIDTH - (OVERLAY_CONFIG.TEXT_PADDING_HORIZONTAL * 2)
+    const maxTextWidth = OVERLAY_CONFIG.TEXT_AREA_WIDTH - (OVERLAY_CONFIG.TEXT_PADDING_HORIZONTAL * 2)
     const fontSize = calculateOptimalFontSize(
       ctx,
       text,
@@ -197,7 +199,7 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     const fontWeight = hasStyles ? '700' : 'bold'
     ctx.font = `${fontWeight} ${fontSize}px "${fontFamilyToUse}"`
     console.log(`Setting canvas font to: ${ctx.font}`)
-    console.log(`Text color: ${styleConfig.textColor}`)
+    console.log(`Auto-detected text color: ${textColor}`)
     console.log(`Text to render: "${text}"`)
 
     // Test if font is actually working by measuring text
@@ -216,24 +218,32 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
         ctx.font = `bold ${fontSize}px Arial`
       }
     }
-    ctx.fillStyle = styleConfig.textColor
+
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
 
-    // 7. Apply text shadow for readability
-    ctx.shadowColor = OVERLAY_CONFIG.TEXT_SHADOW.color
-    ctx.shadowBlur = OVERLAY_CONFIG.TEXT_SHADOW.blur
-    ctx.shadowOffsetX = OVERLAY_CONFIG.TEXT_SHADOW.offsetX
-    ctx.shadowOffsetY = OVERLAY_CONFIG.TEXT_SHADOW.offsetY
+    // 7. Calculate center position for text
+    const textX = OVERLAY_CONFIG.TEXT_AREA_X + (OVERLAY_CONFIG.TEXT_AREA_WIDTH / 2)
+    const textY = OVERLAY_CONFIG.TEXT_AREA_Y + (OVERLAY_CONFIG.TEXT_AREA_HEIGHT / 2)
 
-    // 8. Calculate center position for text
-    const textX = OVERLAY_CONFIG.BANNER_X + (OVERLAY_CONFIG.BANNER_WIDTH / 2)
-    const textY = OVERLAY_CONFIG.BANNER_Y + (OVERLAY_CONFIG.BANNER_HEIGHT / 2)
+    // 8. Draw text stroke (outline) for readability
+    ctx.strokeStyle = strokeColor
+    ctx.lineWidth = OVERLAY_CONFIG.STROKE_WIDTH
+    ctx.lineJoin = 'round'
+    ctx.miterLimit = 2
+    ctx.strokeText(text, textX, textY)
 
-    // 9. Draw text
+    // 9. Apply text shadow
+    ctx.shadowColor = textShadow.color
+    ctx.shadowBlur = textShadow.blur
+    ctx.shadowOffsetX = textShadow.offsetX
+    ctx.shadowOffsetY = textShadow.offsetY
+
+    // 10. Draw filled text on top
+    ctx.fillStyle = textColor
     ctx.fillText(text, textX, textY)
 
-    // 10. Export as PNG buffer
+    // 11. Export as PNG buffer
     return canvas.toBuffer('image/png')
   } catch (error) {
     console.error('Error applying text overlay:', error)

@@ -25,7 +25,11 @@ const OVERLAY_CONFIG = {
   TEXT_PADDING_VERTICAL: 20,
   FONT_SIZE_MAX: 120,
   FONT_SIZE_MIN: 80,
-  FONT_SIZE_STEP: 2
+  FONT_SIZE_STEP: 2,
+  // Backdrop settings for text readability
+  BACKDROP_OPACITY: 0.6,
+  BACKDROP_PADDING: 20,
+  BACKDROP_BORDER_RADIUS: 12
 }
 
 /**
@@ -120,6 +124,23 @@ function getContrastingTextColor(dominantColor) {
 
   // If neither meets 4.5:1, use the better one
   return whiteContrast >= blackContrast ? '#FFFFFF' : '#000000'
+}
+
+/**
+ * Draw a rounded rectangle path
+ */
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+  ctx.beginPath()
+  ctx.moveTo(x + radius, y)
+  ctx.lineTo(x + width - radius, y)
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius)
+  ctx.lineTo(x + width, y + height - radius)
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
+  ctx.lineTo(x + radius, y + height)
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius)
+  ctx.lineTo(x, y + radius)
+  ctx.quadraticCurveTo(x, y, x + radius, y)
+  ctx.closePath()
 }
 
 /**
@@ -315,7 +336,32 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     const totalTextHeight = lines.length * lineHeight
     const startY = textAreaCenterY - (totalTextHeight / 2) + (lineHeight / 2)
 
-    // 8. Draw each line (clean text, no effects)
+    // 8. Calculate backdrop dimensions based on actual text size
+    let maxLineWidth = 0
+    for (const line of lines) {
+      const metrics = ctx.measureText(line)
+      maxLineWidth = Math.max(maxLineWidth, metrics.width)
+    }
+
+    const backdropWidth = maxLineWidth + (OVERLAY_CONFIG.BACKDROP_PADDING * 2)
+    const backdropHeight = totalTextHeight + (OVERLAY_CONFIG.BACKDROP_PADDING * 2)
+    const backdropX = textX - (backdropWidth / 2)
+    const backdropY = textAreaCenterY - (backdropHeight / 2)
+
+    // 9. Draw semi-transparent backdrop (opposite of text color for contrast)
+    const backdropColor = textColor === '#FFFFFF' ? '0, 0, 0' : '255, 255, 255'
+    ctx.fillStyle = `rgba(${backdropColor}, ${OVERLAY_CONFIG.BACKDROP_OPACITY})`
+    drawRoundedRect(
+      ctx,
+      backdropX,
+      backdropY,
+      backdropWidth,
+      backdropHeight,
+      OVERLAY_CONFIG.BACKDROP_BORDER_RADIUS
+    )
+    ctx.fill()
+
+    // 10. Draw text on top of backdrop
     ctx.fillStyle = textColor
 
     for (let i = 0; i < lines.length; i++) {

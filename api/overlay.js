@@ -16,7 +16,7 @@ const path = require('path')
 const OVERLAY_CONFIG = {
   IMAGE_WIDTH: 1024,
   IMAGE_HEIGHT: 1024,
-  // Text area for sampling background brightness
+  // Text area for sampling dominant color
   TEXT_AREA_X: 51,
   TEXT_AREA_Y: 60,
   TEXT_AREA_WIDTH: 922,
@@ -25,9 +25,7 @@ const OVERLAY_CONFIG = {
   TEXT_PADDING_VERTICAL: 20,
   FONT_SIZE_MAX: 120,
   FONT_SIZE_MIN: 80,
-  FONT_SIZE_STEP: 2,
-  // Thicker stroke for readability (no shadow)
-  STROKE_WIDTH: 8
+  FONT_SIZE_STEP: 2
 }
 
 /**
@@ -41,27 +39,87 @@ const FONT_FAMILIES = {
 }
 
 /**
- * Calculate average brightness of a region in the image
- * Returns a value between 0 (dark) and 255 (light)
+ * Extract dominant color from a region of the image
+ * Uses color bucketing for performance
+ * Returns { r, g, b } of the most common color
  */
-function calculateRegionBrightness(ctx, x, y, width, height) {
+function extractDominantColor(ctx, x, y, width, height) {
   const imageData = ctx.getImageData(x, y, width, height)
   const data = imageData.data
-  let totalBrightness = 0
-  let pixelCount = 0
+  const colorBuckets = {}
 
   // Sample every 10th pixel for performance
   for (let i = 0; i < data.length; i += 40) { // 4 channels * 10 = 40
     const r = data[i]
     const g = data[i + 1]
     const b = data[i + 2]
-    // Use perceived brightness formula (human eye is more sensitive to green)
-    const brightness = (0.299 * r + 0.587 * g + 0.114 * b)
-    totalBrightness += brightness
-    pixelCount++
+
+    // Reduce to 32 color buckets per channel (8 levels each)
+    const bucketR = Math.floor(r / 32) * 32
+    const bucketG = Math.floor(g / 32) * 32
+    const bucketB = Math.floor(b / 32) * 32
+
+    const key = `${bucketR},${bucketG},${bucketB}`
+    colorBuckets[key] = (colorBuckets[key] || 0) + 1
   }
 
-  return totalBrightness / pixelCount
+  // Find most common color bucket
+  let maxCount = 0
+  let dominantKey = '128,128,128'
+
+  for (const [key, count] of Object.entries(colorBuckets)) {
+    if (count > maxCount) {
+      maxCount = count
+      dominantKey = key
+    }
+  }
+
+  const [r, g, b] = dominantKey.split(',').map(Number)
+  return { r, g, b }
+}
+
+/**
+ * Calculate relative luminance (WCAG formula)
+ */
+function calculateLuminance(r, g, b) {
+  const [rs, gs, bs] = [r, g, b].map(c => {
+    c = c / 255
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  })
+  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs
+}
+
+/**
+ * Calculate contrast ratio between two colors
+ */
+function getContrastRatio(r1, g1, b1, r2, g2, b2) {
+  const lum1 = calculateLuminance(r1, g1, b1)
+  const lum2 = calculateLuminance(r2, g2, b2)
+  const lighter = Math.max(lum1, lum2)
+  const darker = Math.min(lum1, lum2)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+/**
+ * Get a contrasting color for text based on dominant background color
+ * Returns hex color string
+ */
+function getContrastingTextColor(dominantColor) {
+  const { r, g, b } = dominantColor
+
+  // Check contrast with white and black
+  const whiteContrast = getContrastRatio(r, g, b, 255, 255, 255)
+  const blackContrast = getContrastRatio(r, g, b, 0, 0, 0)
+
+  // Use whichever has better contrast (minimum 4.5:1 for WCAG AA)
+  if (whiteContrast >= blackContrast && whiteContrast >= 4.5) {
+    return '#FFFFFF'
+  } else if (blackContrast >= 4.5) {
+    return '#000000'
+  }
+
+  // If neither meets 4.5:1, use the better one
+  return whiteContrast >= blackContrast ? '#FFFFFF' : '#000000'
 }
 
 /**
@@ -197,23 +255,19 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     const img = await loadImage(backgroundImageBuffer)
     ctx.drawImage(img, 0, 0, OVERLAY_CONFIG.IMAGE_WIDTH, OVERLAY_CONFIG.IMAGE_HEIGHT)
 
-    // 4. Calculate background brightness where text will be placed
-    const avgBrightness = calculateRegionBrightness(
+    // 4. Extract dominant color from text area and calculate contrasting text color
+    const dominantColor = extractDominantColor(
       ctx,
       OVERLAY_CONFIG.TEXT_AREA_X,
       OVERLAY_CONFIG.TEXT_AREA_Y,
       OVERLAY_CONFIG.TEXT_AREA_WIDTH,
       OVERLAY_CONFIG.TEXT_AREA_HEIGHT
     )
-    console.log(`Average background brightness: ${avgBrightness.toFixed(1)}`)
+    console.log(`Dominant background color: rgb(${dominantColor.r}, ${dominantColor.g}, ${dominantColor.b})`)
 
-    // Determine text color based on background brightness
-    // If background is light (>128), use dark text; otherwise use light text
-    const isLightBackground = avgBrightness > 128
-    const textColor = isLightBackground ? '#000000' : '#FFFFFF'
-    const strokeColor = isLightBackground ? '#FFFFFF' : '#000000'
-
-    console.log(`Background is ${isLightBackground ? 'light' : 'dark'}, using ${textColor} text`)
+    // Get contrasting text color based on dominant background
+    const textColor = getContrastingTextColor(dominantColor)
+    console.log(`Calculated contrasting text color: ${textColor}`)
 
     // 5. Calculate text layout (font size and line wrapping)
     const maxTextWidth = OVERLAY_CONFIG.TEXT_AREA_WIDTH - (OVERLAY_CONFIG.TEXT_PADDING_HORIZONTAL * 2)
@@ -261,18 +315,11 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     const totalTextHeight = lines.length * lineHeight
     const startY = textAreaCenterY - (totalTextHeight / 2) + (lineHeight / 2)
 
-    // 8. Draw each line
-    ctx.strokeStyle = strokeColor
-    ctx.lineWidth = OVERLAY_CONFIG.STROKE_WIDTH
-    ctx.lineJoin = 'round'
-    ctx.miterLimit = 2
+    // 8. Draw each line (clean text, no effects)
     ctx.fillStyle = textColor
 
     for (let i = 0; i < lines.length; i++) {
       const lineY = startY + (i * lineHeight)
-      // Draw stroke first
-      ctx.strokeText(lines[i], textX, lineY)
-      // Draw fill on top
       ctx.fillText(lines[i], textX, lineY)
     }
 

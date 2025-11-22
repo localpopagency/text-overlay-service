@@ -20,6 +20,7 @@ const OVERLAY_CONFIG = {
   BANNER_Y: 60,
   BANNER_WIDTH: 922,
   BANNER_HEIGHT: 280,
+  BANNER_RADIUS: 20,
   TEXT_PADDING_HORIZONTAL: 30,
   TEXT_PADDING_VERTICAL: 20,
   FONT_SIZE_MAX: 80,
@@ -155,18 +156,32 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     const img = await loadImage(backgroundImageBuffer)
     ctx.drawImage(img, 0, 0, OVERLAY_CONFIG.IMAGE_WIDTH, OVERLAY_CONFIG.IMAGE_HEIGHT)
 
-    // 4. Draw semi-transparent backdrop rectangle
+    // 4. Draw backdrop rectangle with rounded corners
     const backdropRGBA = hexToRGBA(
       styleConfig.backdropColor,
       styleConfig.backdropOpacity
     )
     ctx.fillStyle = backdropRGBA
-    ctx.fillRect(
-      OVERLAY_CONFIG.BANNER_X,
-      OVERLAY_CONFIG.BANNER_Y,
-      OVERLAY_CONFIG.BANNER_WIDTH,
-      OVERLAY_CONFIG.BANNER_HEIGHT
-    )
+
+    // Draw rounded rectangle
+    const x = OVERLAY_CONFIG.BANNER_X
+    const y = OVERLAY_CONFIG.BANNER_Y
+    const width = OVERLAY_CONFIG.BANNER_WIDTH
+    const height = OVERLAY_CONFIG.BANNER_HEIGHT
+    const radius = OVERLAY_CONFIG.BANNER_RADIUS
+
+    ctx.beginPath()
+    ctx.moveTo(x + radius, y)
+    ctx.lineTo(x + width - radius, y)
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius)
+    ctx.lineTo(x + width, y + height - radius)
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
+    ctx.lineTo(x + radius, y + height)
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius)
+    ctx.lineTo(x, y + radius)
+    ctx.quadraticCurveTo(x, y, x + radius, y)
+    ctx.closePath()
+    ctx.fill()
 
     // 5. Calculate optimal font size
     const maxTextWidth = OVERLAY_CONFIG.BANNER_WIDTH - (OVERLAY_CONFIG.TEXT_PADDING_HORIZONTAL * 2)

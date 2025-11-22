@@ -26,21 +26,8 @@ const OVERLAY_CONFIG = {
   FONT_SIZE_MAX: 120,
   FONT_SIZE_MIN: 80,
   FONT_SIZE_STEP: 2,
-  // Stronger shadow for text without backdrop
-  TEXT_SHADOW_LIGHT: {
-    color: 'rgba(0, 0, 0, 0.8)',
-    blur: 8,
-    offsetX: 3,
-    offsetY: 3
-  },
-  TEXT_SHADOW_DARK: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    blur: 8,
-    offsetX: 3,
-    offsetY: 3
-  },
-  // Stroke for extra readability
-  STROKE_WIDTH: 4
+  // Thicker stroke for readability (no shadow)
+  STROKE_WIDTH: 8
 }
 
 /**
@@ -181,7 +168,6 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     const isLightBackground = avgBrightness > 128
     const textColor = isLightBackground ? '#000000' : '#FFFFFF'
     const strokeColor = isLightBackground ? '#FFFFFF' : '#000000'
-    const textShadow = isLightBackground ? OVERLAY_CONFIG.TEXT_SHADOW_DARK : OVERLAY_CONFIG.TEXT_SHADOW_LIGHT
 
     console.log(`Background is ${isLightBackground ? 'light' : 'dark'}, using ${textColor} text`)
 
@@ -233,13 +219,7 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     ctx.miterLimit = 2
     ctx.strokeText(text, textX, textY)
 
-    // 9. Apply text shadow
-    ctx.shadowColor = textShadow.color
-    ctx.shadowBlur = textShadow.blur
-    ctx.shadowOffsetX = textShadow.offsetX
-    ctx.shadowOffsetY = textShadow.offsetY
-
-    // 10. Draw filled text on top
+    // 9. Draw filled text on top
     ctx.fillStyle = textColor
     ctx.fillText(text, textX, textY)
 

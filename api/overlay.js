@@ -27,7 +27,7 @@ const OVERLAY_CONFIG = {
   FONT_SIZE_MIN: 80,
   FONT_SIZE_STEP: 2,
   // Backdrop settings for text readability
-  BACKDROP_OPACITY: 0.5,
+  BACKDROP_OPACITY: 0.65,
   BACKDROP_PADDING: 20,
   BACKDROP_BORDER_RADIUS: 12
 }
@@ -40,7 +40,7 @@ const FONT_FAMILIES = {
   'Poppins': 'Poppins-Bold.ttf',
   'Montserrat': 'Montserrat-Bold.ttf',
   'Oswald': 'Oswald-SemiBold.ttf',
-  'Product Sans': 'ProductSans-Regular.ttf'
+  'Product Sans': 'ProductSans-Light.ttf'
 }
 
 /**
@@ -254,8 +254,8 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     const backdropX = textX - (backdropWidth / 2)
     const backdropY = textAreaCenterY - (backdropHeight / 2)
 
-    // 9. Draw semi-transparent grey backdrop
-    ctx.fillStyle = `rgba(128, 128, 128, ${OVERLAY_CONFIG.BACKDROP_OPACITY})`
+    // 9. Draw semi-transparent off-white backdrop
+    ctx.fillStyle = `rgba(250, 248, 245, ${OVERLAY_CONFIG.BACKDROP_OPACITY})`
     drawRoundedRect(
       ctx,
       backdropX,

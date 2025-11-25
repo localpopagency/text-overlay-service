@@ -27,7 +27,7 @@ const OVERLAY_CONFIG = {
   FONT_SIZE_MIN: 80,
   FONT_SIZE_STEP: 2,
   // Backdrop settings for text readability
-  BACKDROP_OPACITY: 0.3,
+  BACKDROP_OPACITY: 0.5,
   BACKDROP_PADDING: 20,
   BACKDROP_BORDER_RADIUS: 12
 }

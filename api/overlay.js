@@ -27,7 +27,7 @@ const OVERLAY_CONFIG = {
   FONT_SIZE_MIN: 80,
   FONT_SIZE_STEP: 2,
   // Backdrop settings for text readability
-  BACKDROP_OPACITY: 0.6,
+  BACKDROP_OPACITY: 0.3,
   BACKDROP_PADDING: 20,
   BACKDROP_BORDER_RADIUS: 12
 }
@@ -39,91 +39,8 @@ const FONT_FAMILIES = {
   'Inter': 'Inter-Bold.ttf',
   'Poppins': 'Poppins-Bold.ttf',
   'Montserrat': 'Montserrat-Bold.ttf',
-  'Oswald': 'Oswald-SemiBold.ttf'
-}
-
-/**
- * Extract dominant color from a region of the image
- * Uses color bucketing for performance
- * Returns { r, g, b } of the most common color
- */
-function extractDominantColor(ctx, x, y, width, height) {
-  const imageData = ctx.getImageData(x, y, width, height)
-  const data = imageData.data
-  const colorBuckets = {}
-
-  // Sample every 10th pixel for performance
-  for (let i = 0; i < data.length; i += 40) { // 4 channels * 10 = 40
-    const r = data[i]
-    const g = data[i + 1]
-    const b = data[i + 2]
-
-    // Reduce to 32 color buckets per channel (8 levels each)
-    const bucketR = Math.floor(r / 32) * 32
-    const bucketG = Math.floor(g / 32) * 32
-    const bucketB = Math.floor(b / 32) * 32
-
-    const key = `${bucketR},${bucketG},${bucketB}`
-    colorBuckets[key] = (colorBuckets[key] || 0) + 1
-  }
-
-  // Find most common color bucket
-  let maxCount = 0
-  let dominantKey = '128,128,128'
-
-  for (const [key, count] of Object.entries(colorBuckets)) {
-    if (count > maxCount) {
-      maxCount = count
-      dominantKey = key
-    }
-  }
-
-  const [r, g, b] = dominantKey.split(',').map(Number)
-  return { r, g, b }
-}
-
-/**
- * Calculate relative luminance (WCAG formula)
- */
-function calculateLuminance(r, g, b) {
-  const [rs, gs, bs] = [r, g, b].map(c => {
-    c = c / 255
-    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
-  })
-  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs
-}
-
-/**
- * Calculate contrast ratio between two colors
- */
-function getContrastRatio(r1, g1, b1, r2, g2, b2) {
-  const lum1 = calculateLuminance(r1, g1, b1)
-  const lum2 = calculateLuminance(r2, g2, b2)
-  const lighter = Math.max(lum1, lum2)
-  const darker = Math.min(lum1, lum2)
-  return (lighter + 0.05) / (darker + 0.05)
-}
-
-/**
- * Get a contrasting color for text based on dominant background color
- * Returns hex color string
- */
-function getContrastingTextColor(dominantColor) {
-  const { r, g, b } = dominantColor
-
-  // Check contrast with white and black
-  const whiteContrast = getContrastRatio(r, g, b, 255, 255, 255)
-  const blackContrast = getContrastRatio(r, g, b, 0, 0, 0)
-
-  // Use whichever has better contrast (minimum 4.5:1 for WCAG AA)
-  if (whiteContrast >= blackContrast && whiteContrast >= 4.5) {
-    return '#FFFFFF'
-  } else if (blackContrast >= 4.5) {
-    return '#000000'
-  }
-
-  // If neither meets 4.5:1, use the better one
-  return whiteContrast >= blackContrast ? '#FFFFFF' : '#000000'
+  'Oswald': 'Oswald-SemiBold.ttf',
+  'Product Sans': 'ProductSans-Regular.ttf'
 }
 
 /**
@@ -180,7 +97,7 @@ function calculateTextLayout(ctx, text, fontFamily, maxWidth, maxHeight) {
   const lineHeightMultiplier = 1.2
 
   while (fontSize >= OVERLAY_CONFIG.FONT_SIZE_MIN) {
-    ctx.font = `bold ${fontSize}px "${fontFamily}"`
+    ctx.font = `${fontSize}px "${fontFamily}"`
 
     // First check if it fits on one line
     const singleLineMetrics = ctx.measureText(text)
@@ -202,7 +119,7 @@ function calculateTextLayout(ctx, text, fontFamily, maxWidth, maxHeight) {
   }
 
   // Fallback: use minimum font size with wrapping
-  ctx.font = `bold ${OVERLAY_CONFIG.FONT_SIZE_MIN}px "${fontFamily}"`
+  ctx.font = `${OVERLAY_CONFIG.FONT_SIZE_MIN}px "${fontFamily}"`
   const lines = wrapText(ctx, text, maxWidth)
   console.warn(`Text "${text}" wrapped to ${lines.length} lines at ${OVERLAY_CONFIG.FONT_SIZE_MIN}px`)
   return { fontSize: OVERLAY_CONFIG.FONT_SIZE_MIN, lines: lines.slice(0, 2) } // Max 2 lines
@@ -276,19 +193,9 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     const img = await loadImage(backgroundImageBuffer)
     ctx.drawImage(img, 0, 0, OVERLAY_CONFIG.IMAGE_WIDTH, OVERLAY_CONFIG.IMAGE_HEIGHT)
 
-    // 4. Extract dominant color from text area and calculate contrasting text color
-    const dominantColor = extractDominantColor(
-      ctx,
-      OVERLAY_CONFIG.TEXT_AREA_X,
-      OVERLAY_CONFIG.TEXT_AREA_Y,
-      OVERLAY_CONFIG.TEXT_AREA_WIDTH,
-      OVERLAY_CONFIG.TEXT_AREA_HEIGHT
-    )
-    console.log(`Dominant background color: rgb(${dominantColor.r}, ${dominantColor.g}, ${dominantColor.b})`)
-
-    // Get contrasting text color based on dominant background
-    const textColor = getContrastingTextColor(dominantColor)
-    console.log(`Calculated contrasting text color: ${textColor}`)
+    // 4. Use accent color from styleConfig
+    const textColor = styleConfig.textColor
+    console.log(`Using accent text color: ${textColor}`)
 
     // 5. Calculate text layout (font size and line wrapping)
     const maxTextWidth = OVERLAY_CONFIG.TEXT_AREA_WIDTH - (OVERLAY_CONFIG.TEXT_PADDING_HORIZONTAL * 2)
@@ -301,9 +208,8 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
       maxTextHeight
     )
 
-    // 6. Configure text rendering
-    const fontWeight = hasStyles ? '700' : 'bold'
-    ctx.font = `${fontWeight} ${fontSize}px "${fontFamilyToUse}"`
+    // 6. Configure text rendering (use regular weight, not bold)
+    ctx.font = `${fontSize}px "${fontFamilyToUse}"`
     console.log(`Setting canvas font to: ${ctx.font}`)
     console.log(`Auto-detected text color: ${textColor}`)
     console.log(`Text to render: "${text}" (${lines.length} line${lines.length > 1 ? 's' : ''})`)
@@ -320,7 +226,7 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
 
       if (fallbackMetrics.width === 0) {
         console.error(`❌ Font completely failed. Using Arial fallback.`)
-        ctx.font = `bold ${fontSize}px Arial`
+        ctx.font = `${fontSize}px Arial`
       }
     }
 
@@ -348,9 +254,8 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     const backdropX = textX - (backdropWidth / 2)
     const backdropY = textAreaCenterY - (backdropHeight / 2)
 
-    // 9. Draw semi-transparent backdrop (opposite of text color for contrast)
-    const backdropColor = textColor === '#FFFFFF' ? '0, 0, 0' : '255, 255, 255'
-    ctx.fillStyle = `rgba(${backdropColor}, ${OVERLAY_CONFIG.BACKDROP_OPACITY})`
+    // 9. Draw semi-transparent grey backdrop
+    ctx.fillStyle = `rgba(128, 128, 128, ${OVERLAY_CONFIG.BACKDROP_OPACITY})`
     drawRoundedRect(
       ctx,
       backdropX,

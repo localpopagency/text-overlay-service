@@ -254,8 +254,8 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     const backdropX = textX - (backdropWidth / 2)
     const backdropY = textAreaCenterY - (backdropHeight / 2)
 
-    // 9. Draw semi-transparent off-white backdrop
-    ctx.fillStyle = `rgba(250, 248, 245, ${OVERLAY_CONFIG.BACKDROP_OPACITY})`
+    // 9. Draw semi-transparent dark grey backdrop
+    ctx.fillStyle = `rgba(64, 64, 64, 0.6)`
     drawRoundedRect(
       ctx,
       backdropX,

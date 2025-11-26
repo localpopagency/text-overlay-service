@@ -33,14 +33,14 @@ const OVERLAY_CONFIG = {
 }
 
 /**
- * Font mappings - using Light versions for thinner, more elegant text
+ * Font mappings - using Regular weight for better visibility
  */
 const FONT_FAMILIES = {
-  'Inter': 'ProductSans-Light.ttf', // Fallback to Product Sans Light
-  'Poppins': 'ProductSans-Light.ttf', // Fallback to Product Sans Light
-  'Montserrat': 'ProductSans-Light.ttf', // Fallback to Product Sans Light
-  'Oswald': 'ProductSans-Light.ttf', // Fallback to Product Sans Light
-  'Product Sans': 'ProductSans-Light.ttf'
+  'Inter': 'ProductSans-Regular.ttf',
+  'Poppins': 'ProductSans-Regular.ttf',
+  'Montserrat': 'ProductSans-Regular.ttf',
+  'Oswald': 'ProductSans-Regular.ttf',
+  'Product Sans': 'ProductSans-Regular.ttf'
 }
 
 /**

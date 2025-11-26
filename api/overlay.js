@@ -33,14 +33,14 @@ const OVERLAY_CONFIG = {
 }
 
 /**
- * Font mappings - using Montserrat Regular (Light has broken metadata)
+ * Font mappings - using Montserrat variable font (supports all weights)
  */
 const FONT_FAMILIES = {
-  'Inter': 'Montserrat-Regular.ttf',
-  'Poppins': 'Montserrat-Regular.ttf',
-  'Montserrat': 'Montserrat-Regular.ttf',
-  'Oswald': 'Montserrat-Regular.ttf',
-  'Product Sans': 'Montserrat-Regular.ttf'
+  'Inter': 'Montserrat-VariableFont_wght.ttf',
+  'Poppins': 'Montserrat-VariableFont_wght.ttf',
+  'Montserrat': 'Montserrat-VariableFont_wght.ttf',
+  'Oswald': 'Montserrat-VariableFont_wght.ttf',
+  'Product Sans': 'Montserrat-VariableFont_wght.ttf'
 }
 
 /**

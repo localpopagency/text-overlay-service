@@ -16,10 +16,10 @@ const path = require('path')
 const OVERLAY_CONFIG = {
   IMAGE_WIDTH: 1024,
   IMAGE_HEIGHT: 1024,
-  // Text area for sampling dominant color
-  TEXT_AREA_X: 51,
+  // Text area - left-aligned, max 75% of image width
+  TEXT_AREA_X: 40,
   TEXT_AREA_Y: 60,
-  TEXT_AREA_WIDTH: 922,
+  TEXT_AREA_WIDTH: 768, // 75% of 1024px
   TEXT_AREA_HEIGHT: 280,
   TEXT_PADDING_HORIZONTAL: 30,
   TEXT_PADDING_VERTICAL: 20,
@@ -230,11 +230,11 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
       }
     }
 
-    ctx.textAlign = 'center'
+    ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
 
-    // 7. Calculate center position for text
-    const textX = OVERLAY_CONFIG.TEXT_AREA_X + (OVERLAY_CONFIG.TEXT_AREA_WIDTH / 2)
+    // 7. Calculate left-aligned position for text
+    const textX = OVERLAY_CONFIG.TEXT_AREA_X + OVERLAY_CONFIG.TEXT_PADDING_HORIZONTAL
     const textAreaCenterY = OVERLAY_CONFIG.TEXT_AREA_Y + (OVERLAY_CONFIG.TEXT_AREA_HEIGHT / 2)
     const lineHeight = fontSize * 1.2
 
@@ -251,7 +251,7 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
 
     const backdropWidth = maxLineWidth + (OVERLAY_CONFIG.BACKDROP_PADDING * 2)
     const backdropHeight = totalTextHeight + (OVERLAY_CONFIG.BACKDROP_PADDING * 2)
-    const backdropX = textX - (backdropWidth / 2)
+    const backdropX = textX - OVERLAY_CONFIG.BACKDROP_PADDING
     const backdropY = textAreaCenterY - (backdropHeight / 2)
 
     // 9. Draw semi-transparent backdrop using palette secondary color

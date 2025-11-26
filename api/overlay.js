@@ -27,19 +27,19 @@ const OVERLAY_CONFIG = {
   FONT_SIZE_MIN: 80,
   FONT_SIZE_STEP: 2,
   // Backdrop settings for text readability
-  BACKDROP_OPACITY: 0.65,
+  BACKDROP_OPACITY: 0.7,
   BACKDROP_PADDING: 20,
-  BACKDROP_BORDER_RADIUS: 12
+  BACKDROP_BORDER_RADIUS: 20
 }
 
 /**
- * Font mappings (same as palette-style-mappings.ts)
+ * Font mappings - using Light versions for thinner, more elegant text
  */
 const FONT_FAMILIES = {
-  'Inter': 'Inter-Bold.ttf',
-  'Poppins': 'Poppins-Bold.ttf',
-  'Montserrat': 'Montserrat-Bold.ttf',
-  'Oswald': 'Oswald-SemiBold.ttf',
+  'Inter': 'ProductSans-Light.ttf', // Fallback to Product Sans Light
+  'Poppins': 'ProductSans-Light.ttf', // Fallback to Product Sans Light
+  'Montserrat': 'ProductSans-Light.ttf', // Fallback to Product Sans Light
+  'Oswald': 'ProductSans-Light.ttf', // Fallback to Product Sans Light
   'Product Sans': 'ProductSans-Light.ttf'
 }
 
@@ -254,8 +254,24 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
     const backdropX = textX - (backdropWidth / 2)
     const backdropY = textAreaCenterY - (backdropHeight / 2)
 
-    // 9. Draw semi-transparent dark grey backdrop
-    ctx.fillStyle = `rgba(64, 64, 64, 0.6)`
+    // 9. Draw semi-transparent backdrop using palette secondary color
+    const backdropColor = styleConfig.backdropColor || '#404040'
+    const backdropOpacity = styleConfig.backdropOpacity || OVERLAY_CONFIG.BACKDROP_OPACITY
+
+    // Convert hex to rgba
+    const hexToRgb = (hex) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 64, g: 64, b: 64 } // Fallback to grey
+    }
+
+    const rgb = hexToRgb(backdropColor)
+    ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${backdropOpacity})`
+    console.log(`Using backdrop color: ${backdropColor} at ${backdropOpacity * 100}% opacity`)
+
     drawRoundedRect(
       ctx,
       backdropX,

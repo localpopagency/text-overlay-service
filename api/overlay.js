@@ -97,7 +97,7 @@ function calculateTextLayout(ctx, text, fontFamily, maxWidth, maxHeight) {
   const lineHeightMultiplier = 1.2
 
   while (fontSize >= OVERLAY_CONFIG.FONT_SIZE_MIN) {
-    ctx.font = `500 ${fontSize}px "${fontFamily}"`
+    ctx.font = `700 ${fontSize}px "${fontFamily}"`
 
     // First check if it fits on one line
     const singleLineMetrics = ctx.measureText(text)
@@ -119,7 +119,7 @@ function calculateTextLayout(ctx, text, fontFamily, maxWidth, maxHeight) {
   }
 
   // Fallback: use minimum font size with wrapping
-  ctx.font = `500 ${OVERLAY_CONFIG.FONT_SIZE_MIN}px "${fontFamily}"`
+  ctx.font = `700 ${OVERLAY_CONFIG.FONT_SIZE_MIN}px "${fontFamily}"`
   const lines = wrapText(ctx, text, maxWidth)
   console.warn(`Text "${text}" wrapped to ${lines.length} lines at ${OVERLAY_CONFIG.FONT_SIZE_MIN}px`)
   return { fontSize: OVERLAY_CONFIG.FONT_SIZE_MIN, lines: lines.slice(0, 2) } // Max 2 lines
@@ -208,8 +208,8 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
       maxTextHeight
     )
 
-    // 6. Configure text rendering (use medium weight)
-    ctx.font = `500 ${fontSize}px "${fontFamilyToUse}"`
+    // 6. Configure text rendering (use bold weight)
+    ctx.font = `700 ${fontSize}px "${fontFamilyToUse}"`
     console.log(`Setting canvas font to: ${ctx.font}`)
     console.log(`Auto-detected text color: ${textColor}`)
     console.log(`Text to render: "${text}" (${lines.length} line${lines.length > 1 ? 's' : ''})`)
@@ -220,13 +220,13 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
 
     if (testMetrics.width === 0) {
       console.warn(`⚠️ Font measurement returned 0, font may not be working. Trying fallback...`)
-      ctx.font = `500 ${fontSize}px "${fontFamilyToUse}"`
+      ctx.font = `700 ${fontSize}px "${fontFamilyToUse}"`
       const fallbackMetrics = ctx.measureText(lines[0])
       console.log(`Fallback text width: ${fallbackMetrics.width}px`)
 
       if (fallbackMetrics.width === 0) {
         console.error(`❌ Font completely failed. Using Arial fallback.`)
-        ctx.font = `500 ${fontSize}px Arial`
+        ctx.font = `700 ${fontSize}px Arial`
       }
     }
 

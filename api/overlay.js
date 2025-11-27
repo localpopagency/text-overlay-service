@@ -16,9 +16,9 @@ const path = require('path')
 const OVERLAY_CONFIG = {
   IMAGE_WIDTH: 1024,
   IMAGE_HEIGHT: 1024,
-  // Text area - left-aligned, max 75% of image width
+  // Text area - left-aligned in lower third, max 75% of image width
   TEXT_AREA_X: 40,
-  TEXT_AREA_Y: 60,
+  TEXT_AREA_Y: 684, // Start of lower third (1024 * 2/3)
   TEXT_AREA_WIDTH: 768, // 75% of 1024px
   TEXT_AREA_HEIGHT: 280,
   TEXT_PADDING_HORIZONTAL: 30,

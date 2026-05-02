@@ -128,7 +128,42 @@ function calculateTextLayout(ctx, text, fontFamily, maxWidth, maxHeight) {
 /**
  * Apply text overlay to background image
  */
-async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
+/**
+ * Calculate pixel coordinates for a given position string.
+ * position: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'
+ * backdropWidth/backdropHeight must be measured before calling.
+ */
+function resolvePosition(position, backdropWidth, backdropHeight) {
+  const pos = position || 'bottom-left'
+  const isTop = pos.startsWith('top')
+  const col = pos.endsWith('right') ? 'right' : pos.endsWith('center') ? 'center' : 'left'
+
+  const areaY = isTop ? 60 : OVERLAY_CONFIG.TEXT_AREA_Y
+  const textAreaCenterY = areaY + (OVERLAY_CONFIG.TEXT_AREA_HEIGHT / 2)
+  const backdropY = textAreaCenterY - (backdropHeight / 2)
+
+  // SIDE_OFFSET: where backdrop left/right edge lands (symmetric on both sides)
+  const SIDE_OFFSET = OVERLAY_CONFIG.TEXT_AREA_X + OVERLAY_CONFIG.TEXT_PADDING_HORIZONTAL - OVERLAY_CONFIG.BACKDROP_PADDING // 50
+
+  let textAlign, textX, backdropX
+  if (col === 'left') {
+    textAlign = 'left'
+    backdropX = SIDE_OFFSET
+    textX = backdropX + OVERLAY_CONFIG.BACKDROP_PADDING
+  } else if (col === 'center') {
+    textAlign = 'center'
+    backdropX = (OVERLAY_CONFIG.IMAGE_WIDTH - backdropWidth) / 2
+    textX = OVERLAY_CONFIG.IMAGE_WIDTH / 2
+  } else {
+    textAlign = 'right'
+    backdropX = OVERLAY_CONFIG.IMAGE_WIDTH - SIDE_OFFSET - backdropWidth
+    textX = OVERLAY_CONFIG.IMAGE_WIDTH - SIDE_OFFSET - OVERLAY_CONFIG.BACKDROP_PADDING
+  }
+
+  return { textAlign, textX, backdropX, backdropY, textAreaCenterY }
+}
+
+async function applyTextOverlay(backgroundImageBuffer, text, styleConfig, position) {
   try {
     // 1. Register font
     const fontFileName = FONT_FAMILIES[styleConfig.fontFamily]
@@ -230,19 +265,12 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
       }
     }
 
-    ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
 
-    // 7. Calculate left-aligned position for text
-    const textX = OVERLAY_CONFIG.TEXT_AREA_X + OVERLAY_CONFIG.TEXT_PADDING_HORIZONTAL
-    const textAreaCenterY = OVERLAY_CONFIG.TEXT_AREA_Y + (OVERLAY_CONFIG.TEXT_AREA_HEIGHT / 2)
+    // 7. Measure text to calculate backdrop size
     const lineHeight = fontSize * 1.2
-
-    // Calculate starting Y to center all lines vertically
     const totalTextHeight = lines.length * lineHeight
-    const startY = textAreaCenterY - (totalTextHeight / 2) + (lineHeight / 2)
 
-    // 8. Calculate backdrop dimensions based on actual text size
     let maxLineWidth = 0
     for (const line of lines) {
       const metrics = ctx.measureText(line)
@@ -251,8 +279,12 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig) {
 
     const backdropWidth = maxLineWidth + (OVERLAY_CONFIG.BACKDROP_PADDING * 2)
     const backdropHeight = totalTextHeight + (OVERLAY_CONFIG.BACKDROP_PADDING * 2)
-    const backdropX = textX - OVERLAY_CONFIG.BACKDROP_PADDING
-    const backdropY = textAreaCenterY - (backdropHeight / 2)
+
+    // 8. Resolve position → pixel coordinates
+    const { textAlign, textX, backdropX, backdropY, textAreaCenterY } = resolvePosition(position, backdropWidth, backdropHeight)
+    ctx.textAlign = textAlign
+
+    const startY = textAreaCenterY - (totalTextHeight / 2) + (lineHeight / 2)
 
     // 9. Draw semi-transparent backdrop using palette secondary color
     const backdropColor = styleConfig.backdropColor || '#404040'
@@ -344,7 +376,7 @@ module.exports = async (req, res) => {
     }
 
     // Parse request body
-    const { imageUrl, text, styleConfig } = req.body
+    const { imageUrl, text, styleConfig, position } = req.body
 
     // Validate required fields
     if (!imageUrl) {
@@ -371,7 +403,7 @@ module.exports = async (req, res) => {
     const backgroundImageBuffer = await fetchImageFromUrl(imageUrl)
 
     // Apply text overlay
-    const resultBuffer = await applyTextOverlay(backgroundImageBuffer, text, styleConfig)
+    const resultBuffer = await applyTextOverlay(backgroundImageBuffer, text, styleConfig, position)
 
     // Return the result as PNG
     res.setHeader('Content-Type', 'image/png')

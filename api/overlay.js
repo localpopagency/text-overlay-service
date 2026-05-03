@@ -44,6 +44,16 @@ const FONT_FAMILIES = {
 }
 
 /**
+ * Convert hex color to { r, g, b }
+ */
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return result
+    ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
+    : { r: 64, g: 64, b: 64 }
+}
+
+/**
  * Draw a rounded rectangle path
  */
 function drawRoundedRect(ctx, x, y, width, height, radius) {
@@ -163,7 +173,37 @@ function resolvePosition(position, backdropWidth, backdropHeight) {
   return { textAlign, textX, backdropX, backdropY, textAreaCenterY }
 }
 
-async function applyTextOverlay(backgroundImageBuffer, text, styleConfig, position) {
+/**
+ * Draw a frosted-glass pill backdrop.
+ * Blurs the image region behind the pill, then tints it with the brand color at low opacity.
+ */
+async function drawFrostedGlassPill(ctx, img, backdropX, backdropY, backdropWidth, backdropHeight, brandColor) {
+  const pillRadius = backdropHeight / 2
+
+  // Render a blurred copy of the full image on an offscreen canvas
+  const blurCanvas = createCanvas(OVERLAY_CONFIG.IMAGE_WIDTH, OVERLAY_CONFIG.IMAGE_HEIGHT)
+  const blurCtx = blurCanvas.getContext('2d')
+  blurCtx.filter = 'blur(14px)'
+  blurCtx.drawImage(img, 0, 0, OVERLAY_CONFIG.IMAGE_WIDTH, OVERLAY_CONFIG.IMAGE_HEIGHT)
+  blurCtx.filter = 'none'
+
+  // Clip main canvas to pill shape
+  ctx.save()
+  drawRoundedRect(ctx, backdropX, backdropY, backdropWidth, backdropHeight, pillRadius)
+  ctx.clip()
+
+  // Paste blurred image into pill
+  ctx.drawImage(blurCanvas, 0, 0)
+
+  // Brand color tint at low opacity so the blur shows through
+  const rgb = hexToRgb(brandColor)
+  ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.32)`
+  ctx.fillRect(backdropX, backdropY, backdropWidth, backdropHeight)
+
+  ctx.restore()
+}
+
+async function applyTextOverlay(backgroundImageBuffer, text, styleConfig, position, overlayStyle = 'frosted') {
   try {
     // 1. Register font
     const fontFileName = FONT_FAMILIES[styleConfig.fontFamily]
@@ -286,33 +326,19 @@ async function applyTextOverlay(backgroundImageBuffer, text, styleConfig, positi
 
     const startY = textAreaCenterY - (totalTextHeight / 2) + (lineHeight / 2)
 
-    // 9. Draw semi-transparent backdrop using palette secondary color
+    // 9. Draw backdrop — frosted glass pill or solid rounded rect
     const backdropColor = styleConfig.backdropColor || '#404040'
-    const backdropOpacity = styleConfig.backdropOpacity || OVERLAY_CONFIG.BACKDROP_OPACITY
 
-    // Convert hex to rgba
-    const hexToRgb = (hex) => {
-      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-      return result ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16)
-      } : { r: 64, g: 64, b: 64 } // Fallback to grey
+    if (overlayStyle === 'frosted') {
+      await drawFrostedGlassPill(ctx, img, backdropX, backdropY, backdropWidth, backdropHeight, backdropColor)
+    } else {
+      const backdropOpacity = styleConfig.backdropOpacity || OVERLAY_CONFIG.BACKDROP_OPACITY
+      const rgb = hexToRgb(backdropColor)
+      ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${backdropOpacity})`
+      console.log(`Using solid backdrop: ${backdropColor} at ${backdropOpacity * 100}% opacity`)
+      drawRoundedRect(ctx, backdropX, backdropY, backdropWidth, backdropHeight, OVERLAY_CONFIG.BACKDROP_BORDER_RADIUS)
+      ctx.fill()
     }
-
-    const rgb = hexToRgb(backdropColor)
-    ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${backdropOpacity})`
-    console.log(`Using backdrop color: ${backdropColor} at ${backdropOpacity * 100}% opacity`)
-
-    drawRoundedRect(
-      ctx,
-      backdropX,
-      backdropY,
-      backdropWidth,
-      backdropHeight,
-      OVERLAY_CONFIG.BACKDROP_BORDER_RADIUS
-    )
-    ctx.fill()
 
     // 10. Draw text on top of backdrop
     ctx.fillStyle = textColor
@@ -376,7 +402,7 @@ module.exports = async (req, res) => {
     }
 
     // Parse request body
-    const { imageUrl, text, styleConfig, position } = req.body
+    const { imageUrl, text, styleConfig, position, overlayStyle } = req.body
 
     // Validate required fields
     if (!imageUrl) {
@@ -403,7 +429,7 @@ module.exports = async (req, res) => {
     const backgroundImageBuffer = await fetchImageFromUrl(imageUrl)
 
     // Apply text overlay
-    const resultBuffer = await applyTextOverlay(backgroundImageBuffer, text, styleConfig, position)
+    const resultBuffer = await applyTextOverlay(backgroundImageBuffer, text, styleConfig, position, overlayStyle)
 
     // Return the result as PNG
     res.setHeader('Content-Type', 'image/png')
